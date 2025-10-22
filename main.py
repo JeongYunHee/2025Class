@@ -84,5 +84,3 @@ if name_input and num_input:
         st.info("🔍 입력한 이름과 번호가 정확히 일치하는 일정이 없습니다.")
 elif name_input or num_input:
     st.warning("⚠️ 이름과 번호를 모두 입력해야 검색할 수 있습니다.")
-
-st.caption("※ 이 앱은 Google Sheets의 공개 CSV를 **읽기 전용**으로 사용합니다. (편집 불가)")
