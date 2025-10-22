@@ -10,7 +10,7 @@ st.caption("학생 이름과 번호 4자리를 모두 입력하면 상담 일시
 SHEET_URL = st.secrets.get("SHEET_URL", "")
 
 if not SHEET_URL:
-    st.warning("⚠️ 관리자: Streamlit Secrets에 SHEET_URL(공개 CSV 링크)을 등록하세요.")
+    st.warning("⚠️ 구글 시트 링크 등록하세요. ")
     st.stop()
 
 @st.cache_data(ttl=300)
