@@ -60,23 +60,29 @@ def find_match(df: pd.DataFrame, name: str, num: str):
                       .astype(str)
                       .str.split(r"[,/]").explode().tolist()]
 
-            # 정확히 "이름 번호" 가 일치하는 항목 찾기
-            if target in tokens:
-                hits.append((str(date_col).strip(), str(df.loc[idx, "time"]).strip(), target))
+            # ✅ '*' 포함 여부를 확인하기 위해 별도 저장
+            for token in tokens:
+                if token.replace("*", "").strip() == target:
+                    has_star = "*" in token
+                    hits.append((str(date_col).strip(), str(df.loc[idx, "time"]).strip(), target, has_star))
     return hits
 
+
+# --- 결과 표시 ---
 if name_input and num_input:
     matches = find_match(df, name_input, num_input)
 
     if matches:
         st.success(f"✅ {name_input} ({num_input}) 학생의 상담 일정 입니다.")
-        for (date, time_, who) in matches:
+        for (date, time_, who, has_star) in matches:
+            # ✅ 별표(*) 여부로 장소 결정
+            location = "전화 상담" if has_star else "컴퓨터실2"
             st.markdown(
                 f"""
                 ---
                 👤 **학생:** {name_input}  
                 🗓 **상담 일시:** {date} {time_}  
-                📍 **상담 장소:** 컴퓨터실2  
+                📍 **상담 장소:** {location}  
                 ☎️ *시간 및 장소는 변동될 수 있으니 당일 전화 꼭! 확인하세요.*
                 """
             )
