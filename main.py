@@ -42,7 +42,6 @@ def find_match(df: pd.DataFrame, name: str, num: str):
         return []
 
     hits = []
-    # 두 가지 형태 (학생, 학부모) 모두 찾기
     targets = [f"{name} {num}", f"#{name} {num}"]
     date_cols = df.columns[1:]
 
@@ -81,17 +80,31 @@ if name_input and num_input:
     matches = find_match(df, name_input, num_input)
 
     if matches:
-        st.success(f"✅ {name_input} ({num_input})님의 상담 일정입니다.")
-        for (date, time_, who, has_star, is_parent) in matches:
+        # 학생 / 학부모 구분 자동 확인
+        has_student = any(not m[4] for m in matches)
+        has_parent = any(m[4] for m in matches)
+
+        # 두 유형 모두 있으면 라디오 버튼으로 선택
+        if has_student and has_parent:
+            role_choice = st.radio("👥 어떤 일정 조회할까요?", ["학생", "학부모"], horizontal=True)
+            show_parent = role_choice == "학부모"
+            filtered = [m for m in matches if m[4] == show_parent]
+        else:
+            # 하나만 있으면 자동 결정
+            show_parent = has_parent
+            filtered = matches
+
+        st.success(f"✅ {name_input} ({num_input})님의 상담 일정입니다. ({'학부모' if show_parent else '학생'})")
+
+        for (date, time_, who, has_star, is_parent) in filtered:
             location = "전화 상담" if has_star else "컴퓨터실2"
-            role = "학부모" if is_parent else "학생"
             st.markdown(
                 f"""
                 ---
-                👤 **구분:** {role}  
+                👤 **구분:** {'학부모' if is_parent else '학생'}  
                 🗓 **상담 일시:** {date} {time_}  
                 📍 **상담 장소:** {location}  
-                ☎️ *시간 및 장소는 변동될 수 있으니 당일 전화 꼭! 확인해주세요.*
+                ☎️ *시간 및 장소는 변동될 수 있으니 당일 전화 꼭! 확인하세요.*
                 """
             )
     else:
