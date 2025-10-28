@@ -3,10 +3,10 @@ import pandas as pd
 
 # --- 기본 설정 ---
 st.set_page_config(page_title="상담 일정 조회", page_icon="📅")
-st.title("📚 학생 상담 일정 조회")
-st.caption("학생 이름과 번호 4자리를 모두 입력하면 상담 일시를 확인할 수 있습니다.")
+st.title("📚 학생 및 학부모 상담 일정 조회")
+st.caption("이름과 휴대폰 번호 뒤 4자리를 입력하면 상담 일시를 확인할 수 있습니다.")
 
-# --- Google Sheets URL (Secrets에서 불러오기) ---
+# --- Google Sheets URL ---
 SHEET_URL = st.secrets.get("SHEET_URL", "")
 
 if not SHEET_URL:
@@ -19,7 +19,6 @@ def load_csv(url: str) -> pd.DataFrame:
     if df.columns[0].strip().lower() != "time":
         df = df.rename(columns={df.columns[0]: "time"})
     df.columns = [str(c).strip() for c in df.columns]
-    # '점심' 행 제거
     df = df[~df["time"].astype(str).str.contains("점심")]
     return df.reset_index(drop=True)
 
@@ -32,17 +31,19 @@ except Exception as e:
 # --- 사용자 입력 ---
 col1, col2 = st.columns(2)
 with col1:
-    name_input = st.text_input("👤 학생 이름", placeholder="예: 김하나(알파벳 제외)").strip()
+    name_input = st.text_input("👤 이름 (학생 또는 학부모)", placeholder="예: 김하나").strip()
 with col2:
     num_input = st.text_input("🔢 휴대폰 번호 (뒤 4자리)", placeholder="예: 1234").strip()
 
+
 def find_match(df: pd.DataFrame, name: str, num: str):
-    """이름과 번호가 모두 일치하는 셀을 찾음."""
+    """이름과 번호가 일치하는 셀(학생 또는 학부모)을 찾음."""
     if not name or not num:
         return []
 
     hits = []
-    target = f"{name} {num}".strip()
+    # 두 가지 형태 (학생, 학부모) 모두 찾기
+    targets = [f"{name} {num}", f"#{name} {num}"]
     date_cols = df.columns[1:]
 
     for date_col in date_cols:
@@ -50,21 +51,28 @@ def find_match(df: pd.DataFrame, name: str, num: str):
 
         for idx, cell in col_series.items():
             cell_str = str(cell).strip()
-
             if not cell_str or cell_str.lower() in ["nan", "none"]:
                 continue
 
-            # 여러 명이 있을 수 있으므로 쉼표나 슬래시로 분리
             tokens = [t.strip() for t in
                       pd.Series(cell_str.replace("／", "/").replace("，", ","))
                       .astype(str)
                       .str.split(r"[,/]").explode().tolist()]
 
-            # ✅ '*' 포함 여부를 확인하기 위해 별도 저장
             for token in tokens:
-                if token.replace("*", "").strip() == target:
-                    has_star = "*" in token
-                    hits.append((str(date_col).strip(), str(df.loc[idx, "time"]).strip(), target, has_star))
+                clean_token = token.replace("*", "").strip()
+
+                for target in targets:
+                    if clean_token == target:
+                        has_star = "*" in token
+                        is_parent = target.startswith("#")
+                        hits.append((
+                            str(date_col).strip(),
+                            str(df.loc[idx, "time"]).strip(),
+                            target,
+                            has_star,
+                            is_parent
+                        ))
     return hits
 
 
@@ -73,14 +81,14 @@ if name_input and num_input:
     matches = find_match(df, name_input, num_input)
 
     if matches:
-        st.success(f"✅ {name_input} ({num_input}) 학생의 상담 일정 입니다.")
-        for (date, time_, who, has_star) in matches:
-            # ✅ 별표(*) 여부로 장소 결정
+        st.success(f"✅ {name_input} ({num_input})님의 상담 일정입니다.")
+        for (date, time_, who, has_star, is_parent) in matches:
             location = "전화 상담" if has_star else "컴퓨터실2"
+            role = "학부모" if is_parent else "학생"
             st.markdown(
                 f"""
                 ---
-                👤 **학생:** {name_input}  
+                👤 **구분:** {role}  
                 🗓 **상담 일시:** {date} {time_}  
                 📍 **상담 장소:** {location}  
                 ☎️ *시간 및 장소는 변동될 수 있으니 당일 전화 꼭! 확인하세요.*
